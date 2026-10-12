@@ -1,0 +1,727 @@
+
+	<!DOCTYPE html>
+	<html lang="fr">
+		<head>
+			<meta charset="utf-8">
+			<meta name="viewport" content="width=device-width, height=device-height, viewport-fit=cover, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+			<meta name="description" content="Digipad permet de créer des murs multimédias collaboratifs.">
+			<meta name="robots" content="index, nofollow">
+			<meta name="theme-color" content="#00ced1">
+			<meta property="og:title" content="Digipad by La Digitale">
+			<meta property="og:description" content="Digipad permet de créer des murs multimédias collaboratifs.">
+			<meta property="og:type" content="website">
+			<meta property="og:locale" content="fr_FR">
+			<title>Digipad by La Digitale</title>
+			<link rel="icon" type="image/png" href="./static/img/favicon.png">
+			<link rel="stylesheet" href="./static/css/destyle.css">
+			<link rel="stylesheet" href="./static/css/main.css">
+			<link rel="stylesheet" href="./static/css/pad.css">
+			<link rel="stylesheet" href="./static/css/jspanel.css">
+			<script src="./static/js/vue.js" type="text/javascript"></script>
+			<script src="./static/js/vue-masonry-css.js" type="text/javascript"></script>
+			<script src="./static/js/jspanel.js" type="text/javascript"></script>
+		</head>
+		<body>
+			<noscript>
+				<strong>Veuillez activer Javascript dans votre navigateur pour afficher ce contenu.</strong>
+			</noscript>
+			<div id="app">
+				<main id="page" :class="pad.affichage">
+					<header v-if="!chargement">
+						<span id="titre">{{ pad.titre }}</span>
+					</header>
+
+					<div id="pad" :class="{'fond-personnalise': pad.fond.substring(0, 1) !== '#' && !pad.fond.includes('/img/') && (!pad.hasOwnProperty('fondRepete') || pad.fondRepete === 'desactive'), 'fond-personnalise-repete': pad.fond.substring(0, 1) !== '#' && !pad.fond.includes('/img/') && pad.hasOwnProperty('fondRepete') && pad.fondRepete === 'active'}" :style="definirFond(pad.fond)" v-if="!chargement">
+						<!-- Affichage mur -->
+						<masonry id="blocs" class="mur" :cols="definirLargeurCapsules()" :gutter="0" v-if="pad.affichage === 'mur'">
+							<div :id="item.bloc" class="bloc" v-for="(item, indexItem) in blocs" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" :key="'bloc' + indexItem">
+								<div class="contenu">
+									<div class="titre" v-if="item.titre !== ''" :style="{'background': eclaircirCouleur(item.couleur)}">
+										<span>{{ item.titre }}</span>
+									</div>
+									<div class="texte" v-if="item.texte !== ''" v-html="item.texte"></div>
+									<div class="media" v-if="item.media !== ''">
+										<button type="button" class="bouton-image" :disabled="disabled" title="Afficher dans la visionneuse" aria-label="Afficher dans la visionneuse" v-if="item.type === 'image'" @click="afficherVisionneuse(item)"><img :src="'./fichiers/' + item.media" :alt="definirTexteAlternatif(item)"></button>
+										<button type="button" class="bouton-image" :disabled="disabled" title="Afficher dans la visionneuse" aria-label="Afficher dans la visionneuse" v-else-if="item.type === 'lien-image'" @click="afficherVisionneuse(item)"><img :src="item.media" :alt="definirTexteAlternatif(item)"></button>
+										<button type="button" :disabled="disabled" title="Afficher dans la visionneuse" aria-label="Afficher dans la visionneuse" v-else-if="item.type === 'audio' || item.type === 'video' || item.type === 'embed'" @click="afficherVisionneuse(item)"><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></button>
+										<button type="button" :disabled="disabled" title="Ouvrir le document dans un nouvel onglet" aria-label="Ouvrir le document dans un nouvel onglet" v-else-if="item.type === 'document' || item.type === 'pdf' || item.type === 'office'" @click="afficherMedia(item)"><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></button>
+										<a :href="item.media" title="Ouvrir le lien dans un nouvel onglet" aria-label="Ouvrir le lien dans un nouvel onglet" target="_blank" v-else-if="item.type === 'lien'"><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></a>
+										<a :href="'./fichiers/' + item.media" title="Télécharger" aria-label="Télécharger" download v-else><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></a>
+									</div>
+									<div class="etiquettes" v-if="pad.etiquettes === 'activees' && item.etiquettes && item.etiquettes.length > 0">
+										<span class="etiquette" v-for="(etiquette, indexEtiquette) in item.etiquettes" :style="{'background': eclaircirCouleur(etiquette.couleur), 'border-color': etiquette.couleur, 'color': etiquette.couleur}" :key="'etiquette_' + indexEtiquette">{{ etiquette.nom }}</span>
+									</div>
+									<div class="evaluation" v-if="pad.evaluations === 'activees' && definirEvaluationCapsule(item.listeEvaluations) > 0">
+										<span class="etoiles" :title="definirEtoiles(item.listeEvaluations)">
+											<i class="material-icons" aria-hidden="true" v-for="etoile in definirEvaluationCapsule(item.listeEvaluations)" :key="'etoilepleine_' + etoile">star</i>
+											<i class="material-icons" aria-hidden="true" v-for="etoile in (5 - definirEvaluationCapsule(item.listeEvaluations))" :key="'etoilevide_' + etoile">star_outline</i>
+											<span>({{ item.listeEvaluations.length }})</span>
+										</span>
+									</div>
+									<div class="action" :style="{'color': item.couleur}">
+										<button type="button" :disabled="disabled" title="Afficher les commentaires" aria-label="Afficher les commentaires" class="bouton" @click="ouvrirModaleCommentaires(item.bloc, item.titre)" v-if="pad.commentaires === 'actives' && item.commentaires > 0"><i class="material-icons" aria-hidden="true">comment</i><span class="badge">{{ item.commentaires }}</span></button>
+										<button type="button" :disabled="disabled" title="Informations de la capsule" aria-label="Informations de la capsule" class="bouton info" :data-description="item.info"><i class="material-icons" aria-hidden="true">info</i></button>
+										<span class="media-type" v-if="item.media !== ''"><i class="material-icons" aria-hidden="true">{{ definirIconeMedia(item) }}</i></span>
+									</div>
+								</div>
+							</div>
+						</masonry>
+						<!-- Affichage flux vertical -->
+						<div id="blocs" class="flux-vertical" :class="{'large': pad.hasOwnProperty('largeur') && pad.largeur === 'large'}" v-else-if="pad.affichage === 'flux-vertical'">
+							<div :id="item.bloc" class="bloc" v-for="(item, indexItem) in blocs" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" :key="'bloc' + indexItem">
+								<div class="contenu">
+									<div class="titre" v-if="item.titre !== ''" :style="{'background': eclaircirCouleur(item.couleur)}">
+										<span>{{ item.titre }}</span>
+									</div>
+									<div class="texte" v-if="item.texte !== ''" v-html="item.texte"></div>
+									<div class="media" v-if="item.media !== ''">
+										<button type="button" class="bouton-image" :disabled="disabled" title="Afficher dans la visionneuse" aria-label="Afficher dans la visionneuse" v-if="item.type === 'image'" @click="afficherVisionneuse(item)"><img :src="'./fichiers/' + item.media" :alt="definirTexteAlternatif(item)"></button>
+										<button type="button" class="bouton-image" :disabled="disabled" title="Afficher dans la visionneuse" aria-label="Afficher dans la visionneuse" v-else-if="item.type === 'lien-image'" @click="afficherVisionneuse(item)"><img :src="item.media" :alt="definirTexteAlternatif(item)"></button>
+										<button type="button" :disabled="disabled" title="Afficher dans la visionneuse" aria-label="Afficher dans la visionneuse" v-else-if="item.type === 'audio' || item.type === 'video' || item.type === 'embed'" @click="afficherVisionneuse(item)"><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></button>
+										<button type="button" :disabled="disabled" title="Ouvrir le document dans un nouvel onglet" aria-label="Ouvrir le document dans un nouvel onglet" v-else-if="item.type === 'document' || item.type === 'pdf' || item.type === 'office'" @click="afficherMedia(item)"><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></button>
+										<a :href="item.media" target="_blank" title="Ouvrir le lien dans un nouvel onglet" aria-label="Ouvrir le lien dans un nouvel onglet" v-else-if="item.type === 'lien'"><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></a>
+										<a :href="'./fichiers/' + item.media" title="Télécharger" aria-label="Télécharger" download v-else><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></a>
+									</div>
+									<div class="etiquettes" v-if="pad.etiquettes === 'activees' && item.etiquettes && item.etiquettes.length > 0">
+										<span class="etiquette" v-for="(etiquette, indexEtiquette) in item.etiquettes" :style="{'background': eclaircirCouleur(etiquette.couleur), 'border-color': etiquette.couleur, 'color': etiquette.couleur}" :key="'etiquette_' + indexEtiquette">{{ etiquette.nom }}</span>
+									</div>
+									<div class="evaluation" v-if="pad.evaluations === 'activees' && definirEvaluationCapsule(item.listeEvaluations) > 0">
+										<span class="etoiles" :title="definirEtoiles(item.listeEvaluations)">
+											<i class="material-icons" aria-hidden="true" v-for="etoile in definirEvaluationCapsule(item.listeEvaluations)" :key="'etoilepleine_' + etoile">star</i>
+											<i class="material-icons" aria-hidden="true" v-for="etoile in (5 - definirEvaluationCapsule(item.listeEvaluations))" :key="'etoilevide_' + etoile">star_outline</i>
+											<span>({{ item.listeEvaluations.length }})</span>
+										</span>
+									</div>
+									<div class="action" :style="{'color': item.couleur}">
+										<button type="button" :disabled="disabled" title="Afficher les commentaires" aria-label="Afficher les commentaires" class="bouton" @click="ouvrirModaleCommentaires(item.bloc, item.titre)" v-if="pad.commentaires === 'actives' && item.commentaires > 0"><i class="material-icons" aria-hidden="true">comment</i><span class="badge">{{ item.commentaires }}</span></button>
+										<button type="button" :disabled="disabled" title="Informations de la capsule" aria-label="Informations de la capsule" class="bouton info" :data-description="item.info"><i class="material-icons" aria-hidden="true">info</i></button>
+										<span class="media-type" v-if="item.media !== ''"><i class="material-icons" aria-hidden="true">{{ definirIconeMedia(item) }}</i></span>
+									</div>
+								</div>
+							</div>
+						</div>
+						<!-- Affichage colonne -->
+						<div id="blocs" class="colonnes" v-else-if="pad.affichage === 'colonnes'">
+							<section :id="'colonne' + indexCol" class="colonne" :class="{'large': pad.hasOwnProperty('largeur') && pad.largeur === 'large'}" v-for="(col, indexCol) in pad.colonnes" :key="'colonne' + indexCol">
+								<div class="bloc haut">
+									<div class="titre-colonne">
+										<span>{{ col }}</span>
+									</div>
+								</div>
+								<div class="conteneur-colonne ascenseur" v-if="colonnes[indexCol].length > 0">
+									<div :id="item.bloc" class="bloc" v-for="(item, indexItem) in colonnes[indexCol]" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" :key="'bloc' + indexItem">
+										<div class="contenu">
+											<div class="titre" v-if="item.titre !== ''" :style="{'background': eclaircirCouleur(item.couleur)}">
+												<span>{{ item.titre }}</span>
+											</div>
+											<div class="texte" v-if="item.texte !== ''" v-html="item.texte"></div>
+											<div class="media" v-if="item.media !== ''">
+												<button type="button" class="bouton-image" :disabled="disabled" title="Afficher dans la visionneuse" aria-label="Afficher dans la visionneuse" v-if="item.type === 'image'" @click="afficherVisionneuse(item)"><img :src="'./fichiers/' + item.media" :alt="definirTexteAlternatif(item)"></button>
+												<button type="button" class="bouton-image" :disabled="disabled" title="Afficher dans la visionneuse" aria-label="Afficher dans la visionneuse" v-else-if="item.type === 'lien-image'" @click="afficherVisionneuse(item)"><img :src="item.media" :alt="definirTexteAlternatif(item)"></button>
+												<button type="button" :disabled="disabled" title="Afficher dans la visionneuse" aria-label="Afficher dans la visionneuse" v-else-if="item.type === 'audio' || item.type === 'video' || item.type === 'embed'" @click="afficherVisionneuse(item)"><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></button>
+												<button type="button" :disabled="disabled" title="Ouvrir le document dans un nouvel onglet" aria-label="Ouvrir le document dans un nouvel onglet" v-else-if="item.type === 'document' || item.type === 'pdf' || item.type === 'office'" @click="afficherMedia(item)"><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></button>
+												<a :href="item.media" target="_blank" title="Ouvrir le lien dans un nouvel onglet" aria-label="Ouvrir le lien dans un nouvel onglet" v-else-if="item.type === 'lien'"><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></a>
+												<a :href="'./fichiers/' + item.media" title="Télécharger" aria-label="Télécharger" download v-else><img :class="{'vignette': definirVignette(item).substring(0, 9) !== './static/'}" :src="definirVignette(item)"></a>
+											</div>
+											<div class="etiquettes" v-if="pad.etiquettes === 'activees' && item.etiquettes && item.etiquettes.length > 0">
+												<span class="etiquette" v-for="(etiquette, indexEtiquette) in item.etiquettes" :style="{'background': eclaircirCouleur(etiquette.couleur), 'border-color': etiquette.couleur, 'color': etiquette.couleur}" :key="'etiquette_' + indexEtiquette">{{ etiquette.nom }}</span>
+											</div>
+											<div class="evaluation" v-if="pad.evaluations === 'activees' && definirEvaluationCapsule(item.listeEvaluations) > 0">
+												<span class="etoiles" :title="definirEtoiles(item.listeEvaluations)">
+													<i class="material-icons" aria-hidden="true" v-for="etoile in definirEvaluationCapsule(item.listeEvaluations)" :key="'etoilepleine_' + etoile">star</i>
+													<i class="material-icons" aria-hidden="true" v-for="etoile in (5 - definirEvaluationCapsule(item.listeEvaluations))" :key="'etoilevide_' + etoile">star_outline</i>
+													<span>({{ item.listeEvaluations.length }})</span>
+												</span>
+											</div>
+											<div class="action" :style="{'color': item.couleur}">
+												<button type="button" :disabled="disabled" title="Afficher les commentaires" aria-label="Afficher les commentaires" class="bouton" @click="ouvrirModaleCommentaires(item.bloc)" v-if="pad.commentaires === 'actives' && item.commentaires > 0"><i class="material-icons" aria-hidden="true">comment</i><span class="badge">{{ item.commentaires }}</span></button>
+												<button type="button" :disabled="disabled" title="Informations de la capsule" aria-label="Informations de la capsule" class="bouton info" :data-description="item.info"><i class="material-icons" aria-hidden="true">info</i></button>
+												<span class="media-type" v-if="item.media !== ''"><i class="material-icons" aria-hidden="true">{{ definirIconeMedia(item) }}</i></span>
+											</div>
+										</div>
+									</div>
+								</div>
+							</section>
+						</div>
+					</div>
+
+					<div class="conteneur-modale" v-if="modaleCommentaires">
+						<div id="discussion" class="modale" role="dialog" aria-modal="true" :aria-label="titre">
+							<div class="en-tete">
+								<span class="titre">{{ titre }}</span>
+								<button type="button" title="Fermer" aria-label="Fermer" class="fermer" @click="fermerModaleCommentaires"><i class="material-icons" aria-hidden="true">close</i></span>
+							</div>
+							<ul class="commentaires ascenseur">
+								<li v-for="(entreeCommentaire, indexEntreeCommentaire) in commentaires" :key="indexEntreeCommentaire">
+									<span class="meta">// {{ noms[entreeCommentaire.identifiant] }}</span>
+									<div class="texte" v-html="entreeCommentaire.texte"></div>
+								</li>
+							</ul>
+						</div>
+					</div>
+					
+					<div id="conteneur-chargement" v-if="chargement">
+						<div id="chargement">
+							<div class="spinner">
+								<div></div>
+								<div></div>
+								<div></div>
+								<div></div>
+								<div></div>
+								<div></div>
+								<div></div>
+								<div></div>
+								<div></div>
+								<div></div>
+								<div></div>
+								<div></div>
+							</div>
+						</div>
+					</div>
+
+					<div id="masque"></div>
+				</main>
+			</div>
+			
+			<script type="text/javascript">
+				var vm = new Vue({
+					el: '#app',
+					data: {
+						chargement: true,
+						modaleCommentaires: false,
+						pad: {"titre":"L2–LVA 2026: Media Massa","affichage":"mur","ordre":"decroissant","largeur":"normale","colonnes":"[]","fond":"/img/fond6.png","fondRepete":"desactive","commentaires":"desactives","evaluations":"desactivees"},
+						blocs: [{"bloc":"bloc-id-1790002633199be94ff6661bdca21","titre":"nina charvier","texte":"<div>Saya mengirim<b> pesan pribadi<\/b>.<\/div><div>Pesan pribadi <b>dikirim<\/b> saya.<br>Pesan pribadi saya <b>kirim<\/b>.&nbsp;<\/div>","media":"img_9161_eypa5n6vzik.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#7048e8","identifiant":"ud97a912969ee8","nom":"OJ2460","info":"Créée le 21/09/2026 à 14:57 par OJ2460. Modifiée le 21/09/2026 à 15:50.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-17900026339785bdc7d72fe876652","titre":"Jossph Martin ","texte":"<div>Saya <b>menyimak<\/b> informasi yang paling penting di YouTube&nbsp;<\/div><div><br><\/div><div>Informasi yang paling penting <b>diimak<\/b> di YouTube oleh saya.&nbsp;<\/div><div><br><\/div><div>Informasi yang paling penting sama <b>simak<\/b> di YouTube&nbsp;<\/div>","media":"img_0743_8i518ccnzx.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#242f3d","identifiant":"u01b05491b8e8","nom":"ZL1376","info":"Créée le 21/09/2026 à 14:57 par ZL1376. Modifiée le 21/09/2026 à 16:03.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-17900026826790f2d693245b045d0","titre":"Baptiste ","texte":"<div>Saya <b>Melanggan<\/b> cyprien di youtube karena saya suka videonya<\/div><div><br><\/div><div>Cyprien dilanggan oleh saya di youtube karena saya suka videonya<\/div><div><br><\/div><div>Cyprien saya langgan di youtube karena saya suka videonya<\/div><div><br><\/div>","media":"youtube-subscribe-icon_bsnqslugc76.png","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#f59f00","identifiant":"u7e878287465c","nom":"PE9673","info":"Créée le 21/09/2026 à 14:58 par PE9673. Modifiée le 21/09/2026 à 15:56.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-17900026881920337f3325ffdbac3","titre":"Maïwen ","texte":"<div>Saya <b>menulis<\/b> <b>pesan<\/b> untuk koran di kota saya. &nbsp;<\/div><div>Pesan untuk koran di kota saya <b>ditulis<\/b>. &nbsp;<\/div><div>Pesan saya tulis untuk koran di kota saya&nbsp;<\/div>","media":"img_0687_dbbjslbhvk.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#d6336c","identifiant":"ufe589e934734","nom":"TK8421","info":"Créée le 21/09/2026 à 14:58 par TK8421. Modifiée le 21/09/2026 à 15:52.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-1790002697083cd1462e0d3454ee4","titre":"Natthan","texte":"<div>Saya <b>menyalakan<\/b> televisi untuk menonton berita.<\/div><div>Televisi saya&nbsp;<b>nyalakan<\/b> untuk menonton berita.<\/div>","media":"img_3361_0l6uns1hhpil.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#242f3d","identifiant":"u9c90d3551f378","nom":"FK3850","info":"Créée le 21/09/2026 à 14:58 par FK3850. Modifiée le 21/09/2026 à 15:51.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-1790002722884d5f61fc50ea4bf43","titre":"Celena Coelho Lima Pereira ","texte":"<div>&nbsp;Saya <b><i>mengirim pesan<\/i><\/b> kepada &nbsp;teman saya.<\/div><div>Pesan saya kirim kepada teman saya.&nbsp;<br><\/div>","media":"img_4026_n27dxivylb.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#4263eb","identifiant":"u2b16fa8202f9","nom":"KV4418","info":"Créée le 21/09/2026 à 14:58 par KV4418. Modifiée le 21/09/2026 à 15:43.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-17900027231465d34b256096b7981","titre":"Lili gatius","texte":"<div>Julie biasa <b>memosting<\/b> foto anjingnya di media sosial !&nbsp;<\/div><div>Foto anjingnya <b>diposting<\/b> (oleh) Julie di media sosial !&nbsp;<\/div>","media":"img_20260921_165822_614_36d6n9xblhm.jpg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#242f3d","identifiant":"u454597ae3e428","nom":"ES3962","info":"Créée le 21/09/2026 à 14:58 par ES3962. Modifiée le 21/09/2026 à 15:45.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-1790002724068908493b6befe9d89","titre":"Léonie Chauvet ","texte":"<div>Kakak perempuan saya <b>mematikan<\/b> telepon genggam saya.&nbsp;<br>Telepon genggam saya <b>dimatikan <\/b>oleh&nbsp;<span style=\"font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Oxygen-Sans, Ubuntu, Cantarell, &quot;Helvetica Neue&quot;, sans-serif;\">Kakak perempuan saya.&nbsp;<\/span><\/div>","media":"img_2139_7jj06flhnzr.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#e63b7a","identifiant":"ud48c65b23f388","nom":"SL4487","info":"Créée le 21/09/2026 à 14:58 par SL4487. Modifiée le 21/09/2026 à 15:48.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-17900027341831732a7e83f961327","titre":"Lylie ","texte":"<div>Saya <b>mengganti kanal<\/b> untuk menonton film.&nbsp;<\/div><div>Kanal <b>diganti<\/b> oleh saya untuk menonton film.&nbsp;<br><\/div><div>Kanal saya ganti untuk menonton film.<\/div><div><br><\/div>","media":"img_1495_g079802v5j.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#0ca678","identifiant":"u66e4ae3f0cd48","nom":"IV1937","info":"Créée le 21/09/2026 à 14:58 par IV1937. Modifiée le 21/09/2026 à 15:36.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-1790002809910726b9f3320dfddc6","titre":"Léna","texte":"<div>Saya perlu <b>melakukan panggilan video<\/b> dengan teman saya karena dia akan menceritakan liburannya di pulau Bali.<\/div><div><br><\/div><div>Panggilan video perlu dilakukan dengan teman saya karena dia akan menceritakan liburannya di pulau Bali<\/div>","media":"img_0203_ux1siumszm.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#242f3d","identifiant":"ufc742d3808508","nom":"BZ9067","info":"Créée le 21/09/2026 à 15:00 par BZ9067. Modifiée le 21/09/2026 à 15:35.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-1790002820920549dfc8b8986667b","titre":"Annabelle ","texte":"<div>Berita televisi adalah <b>harian&nbsp;<\/b><\/div><div>(Pasif tidak mungkin)<\/div>","media":"img_0951_cgn5ira6u2u.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#242f3d","identifiant":"ua0aab981398b8","nom":"IH9431","info":"Créée le 21/09/2026 à 15:00 par IH9431. Modifiée le 22/09/2026 à 09:00.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-1790002824268839a99e3c09f0212","titre":"Farah","texte":"<div>Dia <b>menulis surel<\/b> untuk meminta wawancara dengan penyanyi yang terkenal.<\/div><div><br><\/div><div>Untuk meminta wawancara dengan penyanyi yang terkenal,&nbsp;<b>surel<\/b>&nbsp;<b>ditulis <\/b>oleh dia.<\/div>","media":"dialogue-engageant-entre-le-journaliste-et-linvita-dans-un-cadre-de-podcast-en-studio_8w4ftnh9ct8.jpg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#242f3d","identifiant":"u18383da7bac28","nom":"NL7791","info":"Créée le 21/09/2026 à 15:00 par NL7791. Modifiée le 21/09/2026 à 15:36.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-1790002895011e93a72c941c736c9","titre":"Kelly Bourget ","texte":"<div>Dia <b>menghubungi<\/b> teman saya&nbsp; sepanjang malam.<\/div><div>Teman saya <b>dihubungi<\/b> dia sepanjang malam.<\/div>","media":"38b7c279483b8438448ffc4d823a7da5_d0n5qbm1s26.jpg","iframe":"","type":"image","source":"","vignette":"/img/telechargement.png","etiquettes":[],"colonne":"0","couleur":"#d6336c","identifiant":"uf5468215943d","nom":"XB1722","info":"Créée le 21/09/2026 à 15:01 par XB1722. Modifiée le 22/09/2026 à 08:57.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-1790002897454b627fafd0cd1245b","titre":"Ibrahim","texte":"<div>Dia <b>mendengarkan<\/b> podcast di Instagram.<\/div><div><br><\/div><div>Podcast didengarkan oleh dia di Instagram.<\/div><div><br><\/div><div><\/div>","media":"img_4296_va83hl9nd.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#0ca678","identifiant":"ub98100d5990e8","nom":"QJ4046","info":"Créée le 21/09/2026 à 15:01 par QJ4046. Modifiée le 21/09/2026 à 15:37.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-17900030566852bb7d9e737dba9ca","titre":"COGULET Julie ","texte":"<div>Pekan ini di <b>sampul majalah<\/b> ada Tifenn. Dia cantik !&nbsp;<\/div><div>Tidak mungkin&nbsp;<\/div>","media":"img_20260921_170407_056_063obzsmyqyk.jpg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#495057","identifiant":"u9c8d4f188333","nom":"UB2802","info":"Créée le 21/09/2026 à 15:04 par UB2802. Modifiée le 21/09/2026 à 15:38.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-17900030665345a36a1eba34c6aa0","titre":"Tifenn ","texte":"<div>Saya <b>mengunduh<\/b> file ini dari komputer kamu.<\/div><div>File ini saya unduh dari komputer kamu.<\/div>","media":"img_8909_9i2kfqy4vz5.png","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#f76707","identifiant":"ub18edc9bf9b1","nom":"MA5613","info":"Créée le 21/09/2026 à 15:04 par MA5613. Modifiée le 21/09/2026 à 15:37.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-1790003121000be2b2c68ddf86bd2","titre":"Lucie ","texte":"<div>Setiap pagi, ibu kamu <b>membaca laman web <\/b>dengan laptopnya.&nbsp;<br>Setiap pagi, <b>laman web<\/b> dibaca oleh ibumu dengan laptopnya<\/div>","media":"img_0015_gxb60xmtno5.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#7048e8","identifiant":"u5da4f0e7cfb3","nom":"NR3395","info":"Créée le 21/09/2026 à 15:05 par NR3395. Modifiée le 22/09/2026 à 08:59.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-1790003144903d6dfdc272394c587","titre":"Emeline PELLEGRIN ","texte":"<div>Program radio sering ber<b>siaran langsung<\/b>.<\/div><div>(Pasif tidak mungkin.)<\/div>","media":"","iframe":"","type":"","source":"","vignette":"/img/telechargement.png","etiquettes":[],"colonne":"0","couleur":"#0ca678","identifiant":"u9e24b4abed0b8","nom":"ZD5406","info":"Créée le 21/09/2026 à 15:05 par ZD5406. Modifiée le 22/09/2026 à 08:59.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-17900032678080b2387e00836aab6","titre":"Tifenn","texte":"<div>Tung tung tung sahur <b>mengunduh<\/b> filenya dari TikTok.<\/div><div>Filenya <b>diunduh<\/b> Tung Tung Tung Sahur dari TikTok.<\/div>","media":"img_8910_msi6xqy1d2.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#242f3d","identifiant":"ub18edc9bf9b1","nom":"MP2594","info":"Créée le 21/09/2026 à 15:07 par MP2594. Modifiée le 21/09/2026 à 15:26.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0},{"bloc":"bloc-id-17900033950999581df5e9294d0ee","titre":"Brrrr brrrr","texte":"<div>Patapim sedang membuat <b>film pendek<\/b> di hutan.&nbsp;<\/div>","media":"img_0741_j3itah6or0j.jpeg","iframe":"","type":"image","source":"","vignette":"","etiquettes":[],"colonne":"0","couleur":"#242f3d","identifiant":"u01b05491b8e8","nom":"ZL2424","info":"Créée le 21/09/2026 à 15:09 par ZL2424. Modifiée le 21/09/2026 à 15:29.","listeCommentaires":[],"commentaires":0,"listeEvaluations":[],"evaluations":0}],
+						colonnes: [],
+						commentaires: [],
+						panneaux: [],
+						noms: {},
+						nom: '',
+						titre: '',
+						defilement: false,
+						depart: 0,
+						distance: 0,
+						elementPrecedent: null
+					},
+					computed: {
+						disabled () {
+							return this.modaleCommentaires ? true : false
+						}
+					},
+					created () {
+						if (this.pad.ordre === 'decroissant') {
+							this.blocs.reverse()
+						}
+						if (this.pad.affichage === 'colonnes') {
+							this.definirColonnes(this.blocs)
+						}
+					},
+					mounted () {
+						this.nom = this.genererPseudo()
+						const noms = {}
+						this.blocs.forEach((bloc) => {
+							if (bloc.hasOwnProperty('couleur') === false || bloc.couleur === null || typeof bloc.couleur !== 'string') {
+								bloc.couleur = '#242f3d'
+							}
+							if (noms.hasOwnProperty(bloc.identifiant) === false) {
+								noms[bloc.identifiant] = bloc.nom
+							}
+							bloc.listeCommentaires.forEach((commentaire) => {
+								if (noms.hasOwnProperty(commentaire.identifiant) === false) {
+									noms[commentaire.identifiant] = this.genererPseudo()
+								}
+							})
+						})
+						this.noms = noms
+						document.title = this.pad.titre + ' - Digipad by La Digitale'
+						this.chargement = false
+						if (this.pad.affichage === 'colonnes') {
+							this.$nextTick(() => {
+								this.activerDefilementHorizontal()
+							})
+						}
+						document.addEventListener('keydown', this.gererClavier, false)
+					},
+					beforeDestroy () {
+						this.desactiverDefilementHorizontal()
+						document.removeEventListener('keydown', this.gererClavier, false)
+					},
+					methods: {
+						ouvrirModaleCommentaires (bloc) {
+							let commentaires = []
+							let titre = ''
+							this.blocs.forEach((item) => {
+								if (item.bloc === bloc) {
+									commentaires = item.listeCommentaires
+									titre = item.titre
+								}
+							})
+							if (commentaires.length > 0) {
+								this.elementPrecedent = (document.activeElement || document.body)
+								this.commentaires = commentaires
+								this.titre = titre
+								this.modaleCommentaires = true
+								this.$nextTick(() => {
+									document.querySelector('.modale .fermer')?.focus()
+								})
+							}
+						},
+						fermerModaleCommentaires () {
+							this.modaleCommentaires = false
+							this.commentaires = []
+							this.titre = ''
+							this.gererFocus()
+						},
+						gererFocus () {
+							this.$nextTick(() => {
+								if (this.elementPrecedent) {
+									this.elementPrecedent.focus()
+									this.elementPrecedent = null
+								}
+							})
+						},
+						definirFond (fond) {
+							if (fond.substring(0, 1) === '#') {
+								return { backgroundColor: fond }
+							} else if (fond.includes('/img/')) {
+								return { backgroundImage: 'url(./static/' + fond + ')' }
+							} else {
+								return { backgroundImage: 'url(./fichiers/' + fond.split('/').pop() + ')' }
+							}
+						},
+						definirLargeurCapsules () {
+							switch (this.pad.largeur) {
+								case 'large':
+									return { default: 4, 1729: 4, 1449: 3, 1365: 2, 899: 2, 499: 1 }
+								default:
+									return { default: 5, 1729: 5, 1449: 4, 1365: 3, 899: 2, 499: 1 }
+							}
+						},
+						definirColonnes (blocs) {
+							const colonnes = []
+							if (this.pad.colonnes && JSON.parse(this.pad.colonnes).length > 0) {
+								this.pad.colonnes = JSON.parse(this.pad.colonnes)
+								this.pad.colonnes.forEach(() => {
+									colonnes.push([])
+								})
+								blocs.forEach((bloc, index) => {
+									if (bloc.colonne !== undefined) {
+										colonnes[parseInt(bloc.colonne, 10)].push(bloc)
+									} else {
+										blocs[index].colonne = 0
+										colonnes[bloc.colonne].push(bloc)
+									}
+								})
+							} else {
+								this.pad.colonnes.push('Colonne sans titre')
+								colonnes.push([])
+								blocs.forEach((bloc, index) => {
+									blocs[index].colonne = 0
+									colonnes[0].push(bloc)
+								})
+							}
+							this.blocs = blocs
+							this.colonnes = colonnes
+						},
+						afficherMedia (item) {
+							let lien
+							if (this.verifierURL(item.media) === true) {
+								lien = item.media
+							} else {
+								lien = './fichiers/' + item.media
+							}
+							window.open(lien, '_blank')
+						},
+						echapperAttribut (texte) {
+							return String(texte).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+						},
+						definirTexteAlternatif (item) {
+							if (item && typeof item.alt === 'string') {
+								return item.alt
+							}
+							return ''
+						},
+						definirVignette (item) {
+							let vignette
+							if (item.vignette && item.vignette !== '' && this.verifierURL(item.vignette) === false && String(item.vignette).includes('/img/')) {
+								vignette = './static/img/' + item.vignette.split('/').pop()
+							} else if (item.vignette && item.vignette !== '' && this.verifierURL(item.vignette) === false && !String(item.vignette).includes('/img/')) {
+								vignette = './fichiers/' + item.vignette.split('/').pop()
+							} else if (item.vignette && item.vignette !== '' && this.verifierURL(item.vignette) === true) {
+								vignette = item.vignette
+							}
+							return vignette
+						},
+						definirIconeMedia (item) {
+							let icone
+							switch (item.type) {
+								case 'image':
+								case 'lien-image':
+									icone = 'image'
+									break
+								case 'audio':
+									icone = 'volume_up'
+									break
+								case 'video':
+									icone = 'movie'
+									break
+								case 'pdf':
+								case 'document':
+								case 'office':
+									icone = 'description'
+									break
+								case 'lien':
+									icone = 'link'
+									break
+								case 'embed':
+									if (item.source === 'youtube' || item.source === 'vimeo' || item.source === 'dailymotion' || item.source === 'digiview') {
+										icone = 'movie'
+									} else if (item.source === 'slideshare' || item.media.includes('wikipedia.org') || item.media.includes('drive.google.com') || item.media.includes('docs.google.com')) {
+										icone = 'description'
+									} else if (item.source === 'flickr') {
+										icone = 'image'
+									} else if (item.source === 'soundcloud' || item.media.includes('vocaroo.com') || item.media.includes('voca.ro')) {
+										icone = 'volume_up'
+									} else if (item.media.includes('google.com/maps')) {
+										icone = 'place'
+									} else if (item.source === 'etherpad' || item.media.includes('framapad.org')) {
+										icone = 'group_work'
+									} else {
+										icone = 'web'
+									}
+									break
+								default:
+									icone = 'save_alt'
+									break
+							}
+							return icone
+						},
+						afficherVisionneuse (item) {
+							if (this.panneaux.map((e) => { return e.id }).includes('panneau_' + item.bloc) === false) {
+								this.elementPrecedent = (document.activeElement || document.body)
+								const imageId = 'image-' + Date.now()
+								let html = ''
+								switch (item.type) {
+									case 'image':
+										html = '<span id="' + imageId + '" class="image"><img src="./fichiers/' + item.media + '" alt="' + this.echapperAttribut(this.definirTexteAlternatif(item)) + '"></span>'
+										break
+									case 'lien-image':
+										html = '<span id="' + imageId + '" class="image"><img src="' + item.media + '" alt="' + this.echapperAttribut(this.definirTexteAlternatif(item)) + '"></span>'
+										break
+									case 'audio':
+										html = '<audio controls preload="metadata" src="./fichiers/' + item.media + '"></audio>'
+										break
+									case 'video':
+										html = '<video controls playsinline crossOrigin="anonymous" src="./fichiers/' + item.media + '"></video>'
+										break
+									case 'embed':
+										if (item.source === 'etherpad') {
+											html = '<iframe src="' + item.media + '?userName=' + this.nom + '" allowfullscreen></iframe>'
+										} else if (this.verifierURL(item.iframe) === true) {
+											html = '<iframe src="' + item.iframe + '" allowfullscreen></iframe>'
+										} else {
+											html = '<div class="html">' + item.iframe + '</div>'
+										}
+										break
+								}
+								this.$nextTick(() => {
+									let largeurPanneau = '320px'
+									let hauteurPanneau = '312px'
+									let position = 'center'
+									if (document.querySelector('#page').offsetWidth > 1023) {
+										largeurPanneau = '948px'
+										hauteurPanneau = '940px'
+										position = { my: 'center', at: 'center', offsetX: 0, offsetY: this.convertirRem(2) }
+									} else if (document.querySelector('#page').offsetWidth < 1024 && document.querySelector('#page').offsetWidth > 359) {
+										largeurPanneau = document.querySelector('#page').offsetWidth - this.convertirRem(3) + 'px'
+										hauteurPanneau = '500px'
+										if (parseInt(largeurPanneau, 10) < 328) {
+											largeurPanneau = '328px'
+										}
+										position = { my: 'center', at: 'center', offsetX: 0, offsetY: this.convertirRem(2) }
+									}
+									if (parseInt(hauteurPanneau, 10) > document.querySelector('#page').offsetHeight - this.convertirRem(7)) {
+										hauteurPanneau = document.querySelector('#page').offsetHeight - this.convertirRem(7) + 'px'
+									}
+									const snapOptions = this.definirOptionsSnap()
+									const panneau = jsPanel.create({
+										id: 'panneau_' + item.bloc,
+										animateIn: 'jsPanelFadeIn',
+										animateOut: 'jsPanelFadeOut',
+										iconfont: 'material-icons',
+										closeOnEscape: true,
+										border: '4px solid ' + item.couleur,
+										headerTitle: this.echapperAttribut(item.titre),
+										position: 'center',
+										maximizedMargin: 0,
+										syncMargins: true,
+										resizeit: {
+											minWidth: 200,
+											minHeight: 150
+										},
+										panelSize: {
+											width: largeurPanneau,
+											height: hauteurPanneau
+										},
+										content: html,
+										callback: (panel) => {
+											panel.setControlStatus('normalize', 'hide')
+											panel.setControlStatus('minimize', 'remove')
+											document.querySelector('#masque').classList.add('ouvert')
+											if (item.type === 'image' || item.type === 'lien-image') {
+												document.querySelector('#' + imageId + ' img').style.maxHeight = document.querySelector('#' + panel.id + ' .jsPanel-content').clientHeight + 'px'
+											} else if (item.type === 'audio') {
+												panel.resize({
+													width: largeurPanneau,
+													height: '150px'
+												}).reposition()
+											}
+											if (panel.querySelector('.jsPanel-btn-smallify')) {
+												panel.querySelector('.jsPanel-btn-smallify').title = 'Plier/déplier'
+												panel.querySelector('.jsPanel-btn-smallify').ariaLabel = 'Plier/déplier'
+												panel.querySelector('.jsPanel-btn-smallify').addEventListener('keydown', (e) => {
+													if (e.key === 'Enter' || e.key === ' ') {
+														e.preventDefault()
+														e.stopPropagation()
+														if (panel.status === 'smallified') {
+															panel.unsmallify()
+														} else {
+															panel.smallify()
+														}
+													}
+												})
+											}
+											if (panel.querySelector('.jsPanel-btn-normalize')) {
+												panel.querySelector('.jsPanel-btn-normalize').title = 'Normaliser'
+												panel.querySelector('.jsPanel-btn-normalize').ariaLabel = 'Normaliser'
+												panel.querySelector('.jsPanel-btn-normalize').addEventListener('keydown', (e) => {
+													if (e.key === 'Enter' || e.key === ' ') {
+														e.preventDefault()
+														e.stopPropagation()
+														panel.normalize()
+														panel.querySelector('.jsPanel-btn-maximize')?.focus()
+													}
+												})
+											}
+											if (panel.querySelector('.jsPanel-btn-maximize')) {
+												panel.querySelector('.jsPanel-btn-maximize').title = 'Maximiser'
+												panel.querySelector('.jsPanel-btn-maximize').ariaLabel = 'Maximiser'
+												panel.querySelector('.jsPanel-btn-maximize').addEventListener('keydown', (e) => {
+													if (e.key === 'Enter' || e.key === ' ') {
+														e.preventDefault()
+														e.stopPropagation()
+														panel.maximize()
+														panel.querySelector('.jsPanel-btn-normalize')?.focus()
+													}
+												})
+											}
+											if (panel.querySelector('.jsPanel-btn-close')) {
+												panel.querySelector('.jsPanel-btn-close').title = 'Fermer'
+												panel.querySelector('.jsPanel-btn-close').ariaLabel = 'Fermer'
+												panel.querySelector('.jsPanel-btn-close').addEventListener('keydown', (e) => {
+													if (e.key === 'Enter' || e.key === ' ') {
+														e.preventDefault()
+														e.stopPropagation()
+														panel.close()
+													}
+												})
+											}
+										},
+										onmaximized: (panel) => {
+											if (item.type === 'image' || item.type === 'lien-image') {
+												document.querySelector('#' + imageId + ' img').style.maxHeight = document.querySelector('#' + panel.id + ' .jsPanel-content').clientHeight + 'px'
+											}
+										},
+										onbeforeclose: (panel) => {
+											const panneaux = document.querySelectorAll('.jsPanel')
+											if (document.querySelector('#masque') && panneaux.length === 1) {
+												document.querySelector('#masque').classList.remove('ouvert')
+											}
+											const indexPanneau = this.panneaux.findIndex(panneau => panneau.id === panel.id)
+											if (indexPanneau !== -1) {
+												this.panneaux.splice(indexPanneau, 1)
+											}
+											if (this.panneaux.length === 0) {
+												this.gererFocus()
+											} else {
+												this.$nextTick(() => {
+													const id = this.panneaux[this.panneaux.length - 1].id
+													if (id) {
+														this.elementPrecedent = document.querySelector('#' + id.replace('panneau_', '') + ' .media')?.firstElementChild || document.body
+														document.querySelector('#' + id + ' .jsPanel-btn-close')?.focus()
+													}
+												})
+											}
+											return true
+										},
+										dragit: {
+											snap: snapOptions
+										}
+									})
+									this.panneaux.push(panneau)
+									this.$nextTick(() => {
+										document.querySelector('#panneau_' + item.bloc + ' .jsPanel-btn-close')?.focus()
+									})
+								})
+							}
+						},
+						definirOptionsSnap () {
+							let snapOptions
+							if (window.innerHeight < window.innerWidth) {
+								snapOptions = {
+									sensitivity: 40,
+									repositionOnSnap: true,
+									resizeToPreSnap: true,
+									snapLeftTop: (panel) => {
+										panel.resize({ width: '50%', height: '100%' })
+									},
+									snapRightTop: (panel) => {
+										panel.resize({ width: '50%', height: '100%' })
+									},
+									snapLeftBottom: (panel) => {
+										panel.resize({ width: '50%', height: '100%' })
+									},
+									snapRightBottom: (panel) => {
+										panel.resize({ width: '50%', height: '100%' })
+									},
+									snapCenterTop: false,
+									snapRightCenter: false,
+									snapCenterBottom: false,
+									snapLeftCenter: false
+								}
+							} else {
+								snapOptions = {
+									sensitivity: 15,
+									repositionOnSnap: true,
+									resizeToPreSnap: true,
+									snapCenterTop: (panel) => {
+										panel.resize({ width: '100%', height: '50%' })
+									},
+									snapCenterBottom: (panel) => {
+										panel.resize({ width: '100%', height: '50%' })
+									},
+									snapLeftTop: false,
+									snapRightCenter: false,
+									snapRightBottom: false,
+									snapRightTop: false,
+									snapLeftBottom: false,
+									snapLeftCenter: false
+								}
+							}
+							return snapOptions
+						},
+						convertirRem (rem) {
+							return rem * parseFloat(getComputedStyle(document.documentElement).fontSize)
+						},
+						definirEtoiles (evaluations) {
+							const etoiles = this.definirEvaluationCapsule(evaluations) > 1 ? this.definirEvaluationCapsule(evaluations) + ' étoiles' : this.definirEvaluationCapsule(evaluations) + ' étoile'
+							return etoiles + ' - ' + evaluations.length + ' évaluations'
+						},
+						definirEvaluationCapsule (evaluations) {
+							if (evaluations && evaluations.length > 0) {
+								let note = 0
+								evaluations.forEach((evaluation) => {
+									note = note + evaluation.etoiles
+								})
+								if (note > 0) {
+									return Math.round(note / evaluations.length)
+								} else {
+									return 0
+								}
+							} else {
+								return 0
+							}
+						},
+						verifierURL (lien) {
+							let url
+							try {
+								url = new URL(lien)
+							} catch {
+								return false
+							}
+							return url.protocol === 'http:' || url.protocol === 'https:'
+						},
+						genererPseudo () {
+							const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+							const nom = caracteres.charAt(Math.floor(Math.random() * caracteres.length)) + caracteres.charAt(Math.floor(Math.random() * caracteres.length)) + Math.floor(Math.random() * (9999 - 1000) + 1000)
+							return nom
+						},
+						eclaircirCouleur (hex) {
+							if (hex && hex.substring(0, 1) === '#') {
+								const r = parseInt(hex.slice(1, 3), 16)
+								const v = parseInt(hex.slice(3, 5), 16)
+								const b = parseInt(hex.slice(5, 7), 16)
+								return 'rgba(' + r + ', ' + v + ', ' + b + ', ' + 0.15 + ')'
+							} else {
+								return 'transparent'
+							}
+						},
+						activerDefilementHorizontal () {
+							const pad = document.querySelector('#pad')
+							pad.addEventListener('mousedown', this.defilementHorizontalDebut)
+							pad.addEventListener('mouseleave', this.defilementHorizontalFin)
+							pad.addEventListener('mouseup', this.defilementHorizontalFin)
+							pad.addEventListener('mousemove', this.defilementHorizontalEnCours)
+						},
+						desactiverDefilementHorizontal () {
+							const pad = document.querySelector('#pad')
+							pad.removeEventListener('mousedown', this.defilementHorizontalDebut)
+							pad.removeEventListener('mouseleave', this.defilementHorizontalFin)
+							pad.removeEventListener('mouseup', this.defilementHorizontalFin)
+							pad.removeEventListener('mousemove', this.defilementHorizontalEnCours)
+						},
+						defilementHorizontalDebut (event) {
+							const pad = document.querySelector('#pad')
+							this.defilement = true
+							this.depart = event.pageX - pad.offsetLeft
+							this.distance = pad.scrollLeft
+						},
+						defilementHorizontalFin () {
+							this.defilement = false
+						},
+						defilementHorizontalEnCours (event) {
+							if (!this.defilement) return
+							event.preventDefault()
+							const pad = document.querySelector('#pad')
+							const x = event.pageX - pad.offsetLeft
+							const delta = (x - this.depart) * 1.5
+							pad.scrollLeft = this.distance - delta
+						},
+						gererClavier (event) {
+							if (event.key === 'Escape' && this.modaleCommentaires) {
+								this.fermerModaleCommentaires()
+							} else if (event.key === 'Tab') {
+								if (this.modaleCommentaires) {
+									const modale = document.querySelector('.modale')
+									this.piegerFocus(event, modale)
+								} else if (this.panneaux.length > 0) {
+									const panneau = event.target.closest('.jsPanel') || document.body.querySelectorAll('.jsPanel')[0]
+									if (panneau) {
+										this.piegerFocus(event, panneau)
+									}
+								}
+							}
+						},
+						piegerFocus (event, conteneur) {
+							if (!conteneur) return
+							const isVisible = el => el.offsetWidth || el.offsetHeight || el.getClientRects().length
+							const focusables = Array.from(conteneur.querySelectorAll('a[href], button, [tabindex]:not([tabindex="-1"])')).filter(el => !el.disabled && el.tabIndex >= 0 && isVisible(el))
+							if (focusables.length === 0) return
+							const premier = focusables[0]
+							const dernier = focusables[focusables.length - 1]
+							if (event.shiftKey) {
+								if (document.activeElement === premier) {
+									event.preventDefault()
+									dernier.focus()
+								}
+							} else {
+								if (document.activeElement === dernier) {
+									event.preventDefault()
+									premier.focus()
+								}
+							}
+						}
+					}
+				})
+			</script>
+		</body>
+	</html>
